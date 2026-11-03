@@ -1,0 +1,200 @@
+﻿
+@page "/posts/{Id:int}"
+@using ApiContracts
+@using BlazorApp.Services
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Authorization
+@inject IPostService PostService
+@inject IUserService UserService
+@inject ICommentService CommentService
+@inject NavigationManager Navigation
+
+<PageTitle>Post details</PageTitle>
+
+<AuthorizeView>
+    <Authorized Context="authContext">
+        <a href="/" class="btn btn-secondary mb-3">Back to posts</a>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+
+        @if (post == null)
+        {
+            <p>Loading post...</p>
+        }
+        else
+        {
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h1>@post.Title</h1>
+                    <p>@post.Body</p>
+                    <hr />
+                    <p><strong>Author:</strong> @authorName</p>
+
+                    @if (post.UserId == userId)
+                    {
+                        <a href="@($"/editpost/{Id}")"
+                           class="btn btn-primary me-2">
+                            Edit post
+                        </a>
+
+                        <button class="btn btn-danger"
+                                @onclick="DeletePost">
+                            Delete post
+                        </button>
+                    }
+                </div>
+            </div>
+
+            <h2>Comments</h2>
+
+            @if (comments.Count == 0)
+            {
+                <p>No comments yet.</p>
+            }
+            else
+            {
+                @foreach (var comment in comments)
+                {
+                    <div class="card mb-2">
+                        <div class="card-body">
+                            <p>@comment.Body</p>
+                            <small>Author: @GetAuthorName(comment.UserId)</small>
+                        </div>
+                    </div>
+                }
+            }
+
+            <h3 class="mt-4">Add comment</h3>
+
+            <EditForm Model="commentRequest" OnValidSubmit="AddComment">
+                <div class="mb-3">
+                    <InputTextArea class="form-control" rows="3"
+                                   @bind-Value="commentRequest.Body" />
+                </div>
+
+                <button type="submit" class="btn btn-primary"
+                        disabled="@isSaving">
+                    Add comment
+                </button>
+            </EditForm>
+        }
+    </Authorized>
+
+    <NotAuthorized>
+        <h1>Du skal logge ind</h1>
+        <p>Du skal være logget ind for at se opslag og kommentarer.</p>
+        <a href="/login" class="btn btn-primary">Login</a>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    [CascadingParameter]
+    public Task<AuthenticationState> State { get; set; } = default!;
+
+    private PostDto? post;
+    private List<UserDto> users = new();
+    private List<CommentDto> comments = new();
+    private string authorName = "Unknown author";
+    private string? errorMessage;
+    private bool isSaving;
+    private int userId;
+
+    private CreateCommentDto commentRequest = new()
+    {
+        Body = "",
+        PostId = 0,
+        UserId = 0
+    };
+
+    protected override async Task OnParametersSetAsync()
+    {
+        try
+        {
+            errorMessage = null;
+
+            AuthenticationState authenticationState = await State;
+            var user = authenticationState.User;
+
+            if (user.Identity == null || !user.Identity.IsAuthenticated)
+                return;
+
+            string? userIdString = user.FindFirst("Id")?.Value;
+
+            if (!int.TryParse(userIdString, out userId))
+            {
+                errorMessage = "Could not find the logged-in user's ID.";
+                return;
+            }
+
+            post = await PostService.GetPostAsync(Id);
+            users = await UserService.GetUsersAsync();
+            comments = await CommentService.GetCommentsAsync(Id);
+
+            authorName = GetAuthorName(post.UserId);
+
+            commentRequest.PostId = Id;
+            commentRequest.UserId = userId;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private string GetAuthorName(int userId)
+    {
+        return users.FirstOrDefault(u => u.Id == userId)?.UserName
+               ?? "Unknown author";
+    }
+
+    private async Task AddComment()
+    {
+        if (string.IsNullOrWhiteSpace(commentRequest.Body))
+            return;
+
+        isSaving = true;
+        errorMessage = null;
+
+        try
+        {
+            commentRequest.PostId = Id;
+            commentRequest.UserId = userId;
+
+            await CommentService.AddCommentAsync(commentRequest);
+
+            commentRequest.Body = "";
+
+            comments = await CommentService.GetCommentsAsync(Id);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task DeletePost()
+    {
+        if (post == null || post.UserId != userId)
+            return;
+
+        try
+        {
+            await PostService.DeletePostAsync(Id);
+            Navigation.NavigateTo("/");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+}

@@ -1,0 +1,85 @@
+﻿
+@page "/"
+@using ApiContracts
+@using BlazorApp.Services
+@inject IPostService PostService
+@inject IUserService UserService
+
+<PageTitle>Posts</PageTitle>
+
+<AuthorizeView>
+    <Authorized>
+        <h1>Posts</h1>
+
+        <div class="mb-3">
+            <a href="/createpost" class="btn btn-primary">Create post</a>
+            <a href="/createuser" class="btn btn-success">Create user</a>
+        </div>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+
+        @if (posts == null)
+        {
+            <p>Loading posts...</p>
+        }
+        else if (posts.Count == 0)
+        {
+            <p>No posts have been created yet.</p>
+        }
+        else
+        {
+            @foreach (var post in posts)
+            {
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h4>
+                            <a href="@($"/posts/{post.Id}")">
+                                @post.Title
+                            </a>
+                        </h4>
+                        <p>Author: @GetAuthorName(post.UserId)</p>
+                        <a href="@($"/posts/{post.Id}")"
+                           class="btn btn-outline-primary">
+                            View post
+                        </a>
+                    </div>
+                </div>
+            }
+        }
+    </Authorized>
+
+    <NotAuthorized>
+        <h1>Du skal logge ind</h1>
+        <p>Log ind for at se opslagene.</p>
+        <a href="/login" class="btn btn-primary">Login</a>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private List<PostDto>? posts;
+    private List<UserDto> users = new();
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            users = await UserService.GetUsersAsync();
+            posts = await PostService.GetPostsAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+            posts = new List<PostDto>();
+        }
+    }
+
+    private string GetAuthorName(int userId)
+    {
+        return users.FirstOrDefault(u => u.Id == userId)?.UserName
+               ?? "Unknown author";
+    }
+}

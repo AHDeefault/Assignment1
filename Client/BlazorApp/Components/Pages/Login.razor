@@ -1,0 +1,65 @@
+﻿@page "/login"
+@using BlazorApp.Auth
+@inject SimpleAuthProvider AuthProvider
+@inject NavigationManager Navigation
+
+<PageTitle>Login</PageTitle>
+
+<h1>Login</h1>
+
+<div class="row">
+    <div class="col-md-4">
+        <EditForm Model="request" OnValidSubmit="HandleLogin">
+            <div class="mb-3">
+                <label>Username</label>
+                <InputText class="form-control"
+                           @bind-Value="request.UserName" />
+            </div>
+
+            <div class="mb-3">
+                <label>Password</label>
+                <InputText type="password"
+                           class="form-control"
+                           @bind-Value="request.Password" />
+            </div>
+
+            <button type="submit" class="btn btn-primary">
+                Login
+            </button>
+        </EditForm>
+
+        @if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <p class="text-danger mt-3">@errorMessage</p>
+        }
+    </div>
+</div>
+
+@code {
+    private LoginModel request = new();
+    private string? errorMessage;
+
+    private async Task HandleLogin()
+    {
+        errorMessage = null;
+
+        try
+        {
+            await AuthProvider.Login(
+                request.UserName,
+                request.Password);
+
+            Navigation.NavigateTo("/");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Login failed: " + ex.Message;
+        }
+    }
+
+    private class LoginModel
+    {
+        public string UserName { get; set; } = "";
+        public string Password { get; set; } = "";
+    }
+}

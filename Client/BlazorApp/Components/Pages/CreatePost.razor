@@ -1,0 +1,128 @@
+﻿
+@page "/createpost"
+@using ApiContracts
+@using BlazorApp.Services
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Authorization
+@inject IPostService PostService
+@inject NavigationManager Navigation
+
+<PageTitle>Create post</PageTitle>
+
+<AuthorizeView>
+    <Authorized Context="authContext">
+        <h1>Create post</h1>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+
+        @if (loading)
+        {
+            <p>Loading...</p>
+        }
+        else if (userId == 0)
+        {
+            <p>Could not find the logged-in user's ID.</p>
+        }
+        else
+        {
+            <EditForm Model="request" OnValidSubmit="SubmitPost">
+                <div class="mb-3">
+                    <label class="form-label">Title</label>
+                    <InputText class="form-control"
+                               @bind-Value="request.Title" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Body</label>
+                    <InputTextArea class="form-control" rows="6"
+                                   @bind-Value="request.Body" />
+                </div>
+
+                <button type="submit" class="btn btn-primary"
+                        disabled="@isSaving">
+                    Create post
+                </button>
+
+                <a href="/" class="btn btn-secondary ms-2">Cancel</a>
+            </EditForm>
+        }
+    </Authorized>
+
+    <NotAuthorized>
+        <h1>Du skal logge ind</h1>
+        <p>Du skal være logget ind for at oprette et opslag.</p>
+        <a href="/login" class="btn btn-primary">Login</a>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    [CascadingParameter]
+    public Task<AuthenticationState> State { get; set; } = default!;
+
+    private CreatePostDto request = new()
+    {
+        Title = "",
+        Body = "",
+        UserId = 0
+    };
+
+    private int userId;
+    private bool loading = true;
+    private bool isSaving;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            AuthenticationState authenticationState = await State;
+
+            var user = authenticationState.User;
+
+            if (user.Identity == null || !user.Identity.IsAuthenticated)
+                return;
+
+            string? userIdString = user.FindFirst("Id")?.Value;
+
+            if (int.TryParse(userIdString, out int id))
+            {
+                userId = id;
+                request.UserId = userId;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task SubmitPost()
+    {
+        isSaving = true;
+        errorMessage = null;
+
+        try
+        {
+            request.UserId = userId;
+
+            PostDto created = await PostService.AddPostAsync(request);
+
+            Navigation.NavigateTo($"/posts/{created.Id}");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+}

@@ -1,0 +1,66 @@
+﻿@page "/createuser"
+@using ApiContracts
+@using BlazorApp.Services
+@using Microsoft.AspNetCore.Components.Forms
+@inject IUserService UserService
+@inject NavigationManager Navigation
+
+<PageTitle>Create user</PageTitle>
+
+<h1>Create user</h1>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger">@errorMessage</div>
+}
+
+<EditForm Model="request" OnValidSubmit="SubmitUser">
+    <div class="mb-3">
+        <label class="form-label">Username</label>
+        <InputText class="form-control" @bind-Value="request.UserName" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Password</label>
+        <InputText type="password" class="form-control"
+                   @bind-Value="request.Password" />
+    </div>
+
+    <button type="submit" class="btn btn-primary"
+            disabled="@isSaving">
+        Create user
+    </button>
+
+    <a href="/" class="btn btn-secondary ms-2">Cancel</a>
+</EditForm>
+
+@code {
+    private CreateUserDto request = new()
+    {
+        UserName = "",
+        Password = ""
+    };
+
+    private string? errorMessage;
+    private bool isSaving;
+
+    private async Task SubmitUser()
+    {
+        isSaving = true;
+        errorMessage = null;
+
+        try
+        {
+            await UserService.AddUserAsync(request);
+            Navigation.NavigateTo("/");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+}

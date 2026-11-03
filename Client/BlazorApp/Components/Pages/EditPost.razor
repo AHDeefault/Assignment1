@@ -1,0 +1,142 @@
+﻿
+@page "/editpost/{Id:int}"
+@using ApiContracts
+@using BlazorApp.Services
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Authorization
+@inject IPostService PostService
+@inject NavigationManager Navigation
+
+<PageTitle>Edit post</PageTitle>
+
+<AuthorizeView>
+    <Authorized Context="authContext">
+        <h1>Edit post</h1>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+
+        @if (loading)
+        {
+            <p>Loading post...</p>
+        }
+        else if (post == null)
+        {
+            <p>Post not found.</p>
+        }
+        else if (post.UserId != userId)
+        {
+            <p>You are not allowed to edit this post.</p>
+        }
+        else
+        {
+            <EditForm Model="request" OnValidSubmit="SavePost">
+                <div class="mb-3">
+                    <label class="form-label">Title</label>
+                    <InputText class="form-control"
+                               @bind-Value="request.Title" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Body</label>
+                    <InputTextArea class="form-control" rows="6"
+                                   @bind-Value="request.Body" />
+                </div>
+
+                <button type="submit" class="btn btn-primary"
+                        disabled="@isSaving">
+                    Save changes
+                </button>
+
+                <a href="@($"/posts/{Id}")"
+                   class="btn btn-secondary ms-2">
+                    Cancel
+                </a>
+            </EditForm>
+        }
+    </Authorized>
+
+    <NotAuthorized>
+        <h1>Du skal logge ind</h1>
+        <a href="/login" class="btn btn-primary">Login</a>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    [CascadingParameter]
+    public Task<AuthenticationState> State { get; set; } = default!;
+
+    private PostDto? post;
+    private CreatePostDto request = new()
+    {
+        Title = "",
+        Body = "",
+        UserId = 0
+    };
+    private int userId;
+    private bool loading = true;
+    private bool isSaving;
+    private string? errorMessage;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        try
+        {
+            AuthenticationState authState = await State;
+            var user = authState.User;
+
+            if (user.Identity == null || !user.Identity.IsAuthenticated)
+                return;
+
+            int.TryParse(user.FindFirst("Id")?.Value, out userId);
+
+            post = await PostService.GetPostAsync(Id);
+
+            request = new CreatePostDto
+            {
+                Title = post.Title,
+                Body = post.Body,
+                UserId = userId
+            };
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task SavePost()
+    {
+        if (post == null || post.UserId != userId)
+            return;
+
+        isSaving = true;
+        errorMessage = null;
+
+        try
+        {
+            request.UserId = userId;
+
+            await PostService.UpdatePostAsync(Id, request);
+
+            Navigation.NavigateTo($"/posts/{Id}");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+}
