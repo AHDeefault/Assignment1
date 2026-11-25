@@ -6,7 +6,7 @@ namespace InMemoryRepositories;
 public class CommentInMemoryRepository : ICommentRepository
 {
     List<Comment> comments = new();
-    
+
     public CommentInMemoryRepository()
     {
         CreateDummyData();
@@ -14,20 +14,14 @@ public class CommentInMemoryRepository : ICommentRepository
 
     private void CreateDummyData()
     {
-        comments.Add(new Comment
+        comments.Add(new Comment("Nice post!", 1, 2)
         {
-            Id = 1,
-            Body = "Nice post!",
-            PostId = 1,
-            UserId = 2
+            Id = 1
         });
 
-        comments.Add(new Comment
+        comments.Add(new Comment("Thank you!", 2, 1)
         {
-            Id = 2,
-            Body = "Thank you!",
-            PostId = 2,
-            UserId = 1
+            Id = 2
         });
     }
 

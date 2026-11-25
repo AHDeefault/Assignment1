@@ -11,7 +11,7 @@ public class CreatePostView
     {
         this.postRepository = postRepository;
     }
-    
+
     public async Task CreatePost()
     {
         Console.Write("Title: ");
@@ -23,12 +23,7 @@ public class CreatePostView
         Console.Write("User Id: ");
         int userId = int.Parse(Console.ReadLine()!);
 
-        Post post = new Post
-        {
-            Title = title,
-            Body = body,
-            UserId = userId
-        };
+        Post post = new Post(title, body, userId);
 
         Post created = await postRepository.AddAsync(post);
 

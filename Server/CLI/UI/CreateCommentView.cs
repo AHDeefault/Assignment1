@@ -11,7 +11,7 @@ public class CreateCommentView
     {
         this.commentRepository = commentRepository;
     }
-    
+
     public async Task CreateComment()
     {
         Console.Write("Body: ");
@@ -23,12 +23,7 @@ public class CreateCommentView
         Console.Write("Post Id: ");
         int postId = int.Parse(Console.ReadLine()!);
 
-        Comment comment = new Comment
-        {
-            Body = body,
-            UserId = userId,
-            PostId = postId
-        };
+        Comment comment = new Comment(body, postId, userId);
 
         Comment created = await commentRepository.AddAsync(comment);
 

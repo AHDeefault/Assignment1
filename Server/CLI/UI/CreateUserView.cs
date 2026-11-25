@@ -20,13 +20,10 @@ public class CreateUserView
         Console.Write("Password: ");
         string password = Console.ReadLine()!;
 
-        User user = new User
-        {
-            Username = username,
-            Password = password
-        };
+        User user = new User(username, password);
 
         User created = await userRepository.AddAsync(user);
+
         Console.WriteLine("User created!");
     }
 }

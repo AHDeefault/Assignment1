@@ -1,4 +1,5 @@
-using FileRepositories;
+using EfcRepositories;
+using Microsoft.EntityFrameworkCore;
 using RepositoryContracts;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -11,9 +12,13 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddSwaggerGen();
 
-builder.Services.AddScoped<IPostRepository, PostFileRepository>();
-builder.Services.AddScoped<IUserRepository, UserFileRepository>();
-builder.Services.AddScoped<ICommentRepository, CommentFileRepository>();
+// EFC repositories
+builder.Services.AddScoped<IPostRepository, EfcPostRepository>();
+builder.Services.AddScoped<IUserRepository, EfcUserRepository>();
+builder.Services.AddScoped<ICommentRepository, EfcCommentRepository>();
+
+// Register DbContext
+builder.Services.AddDbContext<EfcRepositories.AppContext>();
 
 // JWT authentication
 string jwtKey = builder.Configuration["Jwt:Key"]

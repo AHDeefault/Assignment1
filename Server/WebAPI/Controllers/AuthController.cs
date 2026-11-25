@@ -29,9 +29,7 @@ public class AuthController : ControllerBase
     {
         var user = userRepo.GetManyAsync()
             .FirstOrDefault(u =>
-                u.Username.Equals(
-                    request.UserName,
-                    StringComparison.OrdinalIgnoreCase));
+                u.Username.ToLower() == request.UserName.ToLower());
 
         if (user == null || user.Password != request.Password)
         {
