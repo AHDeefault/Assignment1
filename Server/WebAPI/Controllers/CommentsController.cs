@@ -2,6 +2,7 @@
 using ApiContracts;
 using Entities;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using RepositoryContracts;
 
 namespace WebAPI.Controllers;
@@ -21,17 +22,14 @@ public class CommentsController : ControllerBase
         this.userRepo = userRepo;
     }
 
-    // CREATE
     [HttpPost]
     public async Task<ActionResult<CommentDto>> AddComment(
         [FromBody] CreateCommentDto request)
     {
-        Comment comment = new()
-        {
-            Body = request.Body,
-            PostId = request.PostId,
-            UserId = request.UserId
-        };
+        Comment comment = new Comment(
+            request.Body,
+            request.PostId,
+            request.UserId);
 
         Comment created = await commentRepo.AddAsync(comment);
 
@@ -46,9 +44,8 @@ public class CommentsController : ControllerBase
         return Created($"/comments/{dto.Id}", dto);
     }
 
-    // GET MANY — optional filters
     [HttpGet]
-    public ActionResult<IEnumerable<CommentDto>> GetMany(
+    public async Task<ActionResult<IEnumerable<CommentDto>>> GetMany(
         [FromQuery] int? postId,
         [FromQuery] int? userId,
         [FromQuery] string? userName)
@@ -67,29 +64,28 @@ public class CommentsController : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(userName))
         {
-            List<int> userIds = userRepo.GetManyAsync()
-                .Where(u => u.Username.Contains(
-                    userName,
-                    StringComparison.OrdinalIgnoreCase))
+            List<int> userIds = await userRepo.GetManyAsync()
+                .Where(u => EF.Functions.Like(
+                    u.Username, $"%{userName}%"))
                 .Select(u => u.Id)
-                .ToList();
+                .ToListAsync();
 
             comments = comments.Where(c => userIds.Contains(c.UserId));
         }
 
-        IEnumerable<CommentDto> commentDtos =
-            comments.Select(comment => new CommentDto
+        IEnumerable<CommentDto> commentDtos = await comments
+            .Select(comment => new CommentDto
             {
                 Id = comment.Id,
                 Body = comment.Body,
                 PostId = comment.PostId,
                 UserId = comment.UserId
-            });
+            })
+            .ToListAsync();
 
         return Ok(commentDtos);
     }
 
-    // GET SINGLE
     [HttpGet("{id:int}")]
     public async Task<ActionResult<CommentDto>> GetSingle(
         [FromRoute] int id)
@@ -107,7 +103,6 @@ public class CommentsController : ControllerBase
         return Ok(dto);
     }
 
-    // UPDATE
     [HttpPut("{id:int}")]
     public async Task<ActionResult<CommentDto>> UpdateComment(
         [FromRoute] int id,
@@ -132,7 +127,6 @@ public class CommentsController : ControllerBase
         return Ok(dto);
     }
 
-    // DELETE
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> DeleteComment(
         [FromRoute] int id)

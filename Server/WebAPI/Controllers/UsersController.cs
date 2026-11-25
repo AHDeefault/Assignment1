@@ -2,6 +2,7 @@
 using ApiContracts;
 using Entities;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using RepositoryContracts;
 
 namespace WebAPI.Controllers;
@@ -21,11 +22,7 @@ public class UsersController : ControllerBase
     public async Task<ActionResult<UserDto>> AddUser(
         [FromBody] CreateUserDto request)
     {
-        User user = new()
-        {
-            Username = request.UserName,
-            Password = request.Password
-        };
+        User user = new User(request.UserName, request.Password);
 
         User created = await userRepo.AddAsync(user);
 
@@ -39,7 +36,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpGet]
-    public ActionResult<IEnumerable<UserDto>> GetMany(
+    public async Task<ActionResult<IEnumerable<UserDto>>> GetMany(
         [FromQuery] string? userName)
     {
         IQueryable<User> users = userRepo.GetManyAsync();
@@ -47,16 +44,16 @@ public class UsersController : ControllerBase
         if (!string.IsNullOrWhiteSpace(userName))
         {
             users = users.Where(u =>
-                u.Username.Contains(
-                    userName,
-                    StringComparison.OrdinalIgnoreCase));
+                EF.Functions.Like(u.Username, $"%{userName}%"));
         }
 
-        IEnumerable<UserDto> userDtos = users.Select(user => new UserDto
-        {
-            Id = user.Id,
-            UserName = user.Username
-        });
+        List<UserDto> userDtos = await users
+            .Select(user => new UserDto
+            {
+                Id = user.Id,
+                UserName = user.Username
+            })
+            .ToListAsync();
 
         return Ok(userDtos);
     }
@@ -96,8 +93,7 @@ public class UsersController : ControllerBase
 
         return Ok(dto);
     }
-    
-    
+
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> DeleteUser([FromRoute] int id)
     {
@@ -105,5 +101,4 @@ public class UsersController : ControllerBase
 
         return NoContent();
     }
-
 }

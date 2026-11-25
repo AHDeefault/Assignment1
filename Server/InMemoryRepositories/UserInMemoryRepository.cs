@@ -6,7 +6,7 @@ namespace InMemoryRepositories;
 public class UserInMemoryRepository : IUserRepository
 {
     List<User> users = new();
-    
+
     public UserInMemoryRepository()
     {
         CreateDummyData();
@@ -14,18 +14,14 @@ public class UserInMemoryRepository : IUserRepository
 
     private void CreateDummyData()
     {
-        users.Add(new User
+        users.Add(new User("Alice", "1234")
         {
-            Id = 1,
-            Username = "Alice",
-            Password = "1234"
+            Id = 1
         });
 
-        users.Add(new User
+        users.Add(new User("Bob", "5678")
         {
-            Id = 2,
-            Username = "Bob",
-            Password = "5678"
+            Id = 2
         });
     }
 

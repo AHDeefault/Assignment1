@@ -6,7 +6,7 @@ namespace InMemoryRepositories;
 public class PostInMemoryRepository : IPostRepository
 {
     List<Post> posts = new();
-    
+
     public PostInMemoryRepository()
     {
         CreateDummyData();
@@ -14,20 +14,14 @@ public class PostInMemoryRepository : IPostRepository
 
     private void CreateDummyData()
     {
-        posts.Add(new Post
+        posts.Add(new Post("My first post", "This is my first post!", 1)
         {
-            Id = 1,
-            Title = "My first post",
-            Body = "This is my first post!",
-            UserId = 1
+            Id = 1
         });
 
-        posts.Add(new Post
+        posts.Add(new Post("Hello everyone", "Nice to be here.", 2)
         {
-            Id = 2,
-            Title = "Hello everyone",
-            Body = "Nice to be here.",
-            UserId = 2
+            Id = 2
         });
     }
 

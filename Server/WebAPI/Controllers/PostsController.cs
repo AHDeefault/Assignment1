@@ -1,8 +1,8 @@
-﻿
-using ApiContracts;
+﻿using ApiContracts;
 using Entities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
 using RepositoryContracts;
 
 namespace WebAPI.Controllers;
@@ -22,7 +22,6 @@ public class PostsController : ControllerBase
         this.userRepo = userRepo;
     }
 
-    // Get the ID of the logged-in user from the JWT token
     private bool TryGetCurrentUserId(out int userId)
     {
         return int.TryParse(
@@ -30,7 +29,6 @@ public class PostsController : ControllerBase
             out userId);
     }
 
-    // CREATE
     [Authorize]
     [HttpPost]
     public async Task<ActionResult<PostDto>> AddPost(
@@ -39,12 +37,7 @@ public class PostsController : ControllerBase
         if (!TryGetCurrentUserId(out int userId))
             return Unauthorized();
 
-        Post post = new()
-        {
-            Title = request.Title,
-            Body = request.Body,
-            UserId = userId
-        };
+        Post post = new Post(request.Title, request.Body, userId);
 
         Post created = await postRepo.AddAsync(post);
 
@@ -59,9 +52,8 @@ public class PostsController : ControllerBase
         return Created($"/posts/{dto.Id}", dto);
     }
 
-    // GET MANY
     [HttpGet]
-    public ActionResult<IEnumerable<PostDto>> GetMany(
+    public async Task<ActionResult<IEnumerable<PostDto>>> GetMany(
         [FromQuery] string? title,
         [FromQuery] int? userId,
         [FromQuery] string? userName)
@@ -71,9 +63,7 @@ public class PostsController : ControllerBase
         if (!string.IsNullOrWhiteSpace(title))
         {
             posts = posts.Where(p =>
-                p.Title.Contains(
-                    title,
-                    StringComparison.OrdinalIgnoreCase));
+                EF.Functions.Like(p.Title, $"%{title}%"));
         }
 
         if (userId.HasValue)
@@ -83,46 +73,77 @@ public class PostsController : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(userName))
         {
-            List<int> userIds = userRepo.GetManyAsync()
-                .Where(u => u.Username.Contains(
-                    userName,
-                    StringComparison.OrdinalIgnoreCase))
+            List<int> userIds = await userRepo.GetManyAsync()
+                .Where(u => EF.Functions.Like(
+                    u.Username, $"%{userName}%"))
                 .Select(u => u.Id)
-                .ToList();
+                .ToListAsync();
 
             posts = posts.Where(p => userIds.Contains(p.UserId));
         }
 
-        IEnumerable<PostDto> postDtos = posts.Select(post => new PostDto
+        List<PostDto> postDtos = await posts.Select(post => new PostDto
         {
             Id = post.Id,
             Title = post.Title,
             Body = post.Body,
             UserId = post.UserId
-        });
+        }).ToListAsync();
 
         return Ok(postDtos);
     }
 
-    // GET SINGLE
     [HttpGet("{id:int}")]
     public async Task<ActionResult<PostDto>> GetSingle(
-        [FromRoute] int id)
+        [FromRoute] int id,
+        [FromQuery] bool includeAuthor,
+        [FromQuery] bool includeComments)
     {
-        Post post = await postRepo.GetSingleAsync(id);
+        IQueryable<Post> queryForPost = postRepo.GetManyAsync()
+            .Where(p => p.Id == id);
 
-        PostDto dto = new()
+        if (includeAuthor)
+        {
+            queryForPost = queryForPost.Include(p => p.User);
+        }
+
+        if (includeComments)
+        {
+            queryForPost = queryForPost.Include(p => p.Comments);
+        }
+
+        PostDto? dto = await queryForPost.Select(post => new PostDto
         {
             Id = post.Id,
             Title = post.Title,
             Body = post.Body,
-            UserId = post.UserId
-        };
+            UserId = post.UserId,
+
+            Author = includeAuthor
+                ? new UserDto
+                {
+                    Id = post.User.Id,
+                    UserName = post.User.Username
+                }
+                : null,
+
+            Comments = includeComments
+                ? post.Comments.Select(c => new CommentDto
+                {
+                    Id = c.Id,
+                    Body = c.Body,
+                    PostId = c.PostId,
+                    UserId = c.UserId
+                }).ToList()
+                : new()
+        }).FirstOrDefaultAsync();
+
+        if (dto == null)
+            return NotFound();
 
         return Ok(dto);
     }
 
-    // UPDATE
     [Authorize]
     [HttpPut("{id:int}")]
     public async Task<ActionResult<PostDto>> UpdatePost(
@@ -134,7 +155,6 @@ public class PostsController : ControllerBase
 
         Post post = await postRepo.GetSingleAsync(id);
 
-        // Only the original owner can edit the post
         if (post.UserId != userId)
             return Forbid();
 
@@ -154,7 +174,6 @@ public class PostsController : ControllerBase
         return Ok(dto);
     }
 
-    // DELETE
     [Authorize]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> DeletePost(
@@ -165,7 +184,6 @@ public class PostsController : ControllerBase
 
         Post post = await postRepo.GetSingleAsync(id);
 
-        // Only the original owner can delete the post
         if (post.UserId != userId)
             return Forbid();
 
