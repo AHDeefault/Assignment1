@@ -1,6 +1,7 @@
 ﻿
 using ApiContracts;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using RepositoryContracts;
 using System.IdentityModel.Tokens.Jwt;
@@ -25,10 +26,10 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("login")]
-    public ActionResult Login([FromBody] LoginRequest request)
+    public async Task<ActionResult> Login([FromBody] LoginRequest request)
     {
-        var user = userRepo.GetManyAsync()
-            .FirstOrDefault(u =>
+        var user = await userRepo.GetManyAsync()
+            .FirstOrDefaultAsync(u =>
                 u.Username.ToLower() == request.UserName.ToLower());
 
         if (user == null || user.Password != request.Password)
